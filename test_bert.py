@@ -1,4 +1,4 @@
-from test_BERT import *
+from train_BERT import *
 import torch
 import torch.nn as nn
 import time
@@ -21,29 +21,24 @@ def normalizeStringInDF(s):
     return s
 
 def init_model_and_stuff():
-    with open('data/questions_and_answers_ntu.json','r') as f:
-        data = f.readline()
-    data = pd.read_json(data, orient='index').apply(lambda x: normalizeStringInDF(x))
-    # data = pd.read_csv('data/ntu_faq.csv', encoding='utf-8').apply(lambda x: normalizeStringInDF(x))
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased',cache_dir='./.pytorch_pretrained_bert', do_lower_case=True)
-    model = QAC_BERT(1,2,3, load_pretrained=False)
-    model = load_checkpoint('experiments/test2/9_checkpoint.pth.tar', model)
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased',cache_dir='./.pytorch_pretrained_bert', do_lower_case=False)
+    model = BERT_classifier(1)
+    model = load_checkpoint('experiments/test/5_checkpoint.pth.tar', model)
     print('loaded')
-    return data, tokenizer, model.cuda()
+    return tokenizer, model.cuda()
     
 if __name__ == '__main__':
-    MAX_SEQ_LEN = 200
+    MAX_SEQ_LEN = 128
     correct_top5,correct_top3,correct_top1,total = 0,0,0,0
-    data, tokenizer, model = init_model_and_stuff()
-    questions = data.loc[:,'question'].to_frame()
-    answers = data.loc[:,'answer'].to_frame()
+    tokenizer, model = init_model_and_stuff()
+    questions = pd.read_csv('data/predicted_transcript_sorted_matched.csv', encoding='utf-8')
+    questions['classifier'] = [99999 for x in questions.index]
     model.eval()
     with torch.no_grad():
-        while 1:
-            input_str = input("\n\nEnter Input String: ")
-        # for i, strin in questions.iterrows():
-            # i = int(i[2:])-1
-            # input_str = strin[0]
+        # while 1:
+            # input_str = input("\n\nEnter Input String: ")
+        for i, strin in questions.iterrows():
+            input_str = strin[2]
             # print(i, input_str)
             stime = time.time()
             input_example = InputExample(guid=0, text_a=input_str)
@@ -64,19 +59,24 @@ if __name__ == '__main__':
                           segment_ids=segment_ids,
                           label_ids=labels_ids)
             logits = model(torch.tensor(input_ids).unsqueeze(0).cuda(), torch.tensor(segment_ids).unsqueeze(0).cuda(), torch.tensor(input_mask).unsqueeze(0).cuda(), labels=None)
-            pred = softmax(logits)
-            vals, topk = torch.topk(pred, 5)
-            print(vals)
-            # print(i)
-            print(topk)
-            topk = topk[0].cpu().numpy()
+            pred = logits.sigmoid()
+            print(pred)
+            if pred[0][0] >= 0.5:
+                print('yes')
+                questions.loc[i,'classifier'] = True
+            else:
+                print('no')
+                questions.loc[i,'classifier'] = False
                 
-            print("\n\nTop 3 most probable answers: ")
-            print('\n\n1.', answers.iloc[topk[0],0], 'for\n', questions.iloc[topk[0],0])
-            print('\n\n2.', answers.iloc[topk[1],0], 'for\n', questions.iloc[topk[1],0])
-            print('\n\n3.', answers.iloc[topk[2],0], 'for\n', questions.iloc[topk[2],0])
-            print("time taken for one search: ", time.time()-stime, "seconds")
+            # print("\n\nTop 3 most probable answers: ")
+            # print('\n\n1.', answers.iloc[topk[0],0], 'for\n', questions.iloc[topk[0],0])
+            # print('\n\n2.', answers.iloc[topk[1],0], 'for\n', questions.iloc[topk[1],0])
+            # print('\n\n3.', answers.iloc[topk[2],0], 'for\n', questions.iloc[topk[2],0])
+            # print("time taken for one search: ", time.time()-stime, "seconds")
             
+            
+        assert(not any(questions.classifier==99999))
+        questions.to_csv('data/predicted_transcript_sorted_matched_cls.csv',index=False)
         #     if i in topk:
         #         correct_top5 +=1
         #     if i in topk[:3]:

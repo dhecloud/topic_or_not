@@ -24,7 +24,6 @@ from dataloaders_bert import *
 import datetime
 import argparse
 parser = argparse.ArgumentParser(description='QAC')
-parser.add_argument('--expand', action='store_true', help='expand dataset?')
 parser.add_argument('--epoch', type=int, default=10, help='number of epochs')
 parser.add_argument('--batchsize', type=int, default=32, help='train batch size')
 parser.add_argument('--save_dir', type=str, default="experiments/", help='path/to/save_dir - default:experiments/')
@@ -70,7 +69,7 @@ def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
         
-def fit(args, train_dataloader, optimizer, amples):
+def fit(args, train_dataloader, optimizer, eval_examples):
     
     global_step = 0
     cur_epoch = 0
@@ -115,7 +114,7 @@ def fit(args, train_dataloader, optimizer, amples):
         logger.info('Eval after epoc {}'.format(i_+1))
         save_checkpoint(state, False, args, filename=str(cur_epoch)+"_checkpoint.pth.tar")
         cur_epoch += 1 
-        eval(amples)
+        eval(eval_examples)
         
 
 def save_checkpoint(state, is_best, opt, filename='checkpoint.pth.tar'):
@@ -195,22 +194,11 @@ def eval(eval_examples):
     
 #     ROC-AUC calcualation
     # Compute ROC curve and ROC area for each class
-    fpr = dict()
-    tpr = dict()
-    roc_auc = dict()
-    num_labels=2670
-    for i in range(num_labels):
-        fpr[i], tpr[i], _ = roc_curve(all_labels[:, i], all_logits[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
         
     # Compute micro-average ROC curve and ROC area
-    fpr["micro"], tpr["micro"], _ = roc_curve(all_labels.ravel(), all_logits.ravel())
-    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
 
     result = {'eval_loss': eval_loss,
-              'eval_accuracy': eval_accuracy,
-#               'loss': tr_loss/nb_tr_steps,
-              'roc_auc': roc_auc  }
+              'eval_accuracy': eval_accuracy}
 
     output_eval_file = os.path.join(args['output_dir'], "eval_results.txt")
     with open(output_eval_file, "a") as writer:

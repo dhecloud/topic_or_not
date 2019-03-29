@@ -22,7 +22,7 @@ class BERT_classifier(nn.Module):
         
         self.num_labels= num_labels
         if load_pretrained:
-            self.bert = BertModel.from_pretrained('bert-base-uncased')
+            self.bert = BertModel.from_pretrained('bert-base-cased')
         else:
             config = BertConfig(vocab_size_or_config_json_file=30522)
             self.bert= BertModel(config=config)
